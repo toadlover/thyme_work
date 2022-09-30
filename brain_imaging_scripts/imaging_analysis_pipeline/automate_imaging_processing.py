@@ -109,7 +109,7 @@ if registering == "True":
 		os.chdir("images")
 
 		#get a count of the number of directories
-		os.system("ll | grep drw | wc -l > nrrd_dir_count.txt")
+		os.system("ls -l | grep drw | wc -l > nrrd_dir_count.txt")
 		nrrd_dirs = open("nrrd_dir_count.txt", "r")
 
 		czi_count_int = 0
@@ -156,9 +156,18 @@ if registering == "True":
 		#set fastqc_running to false, will break loop if we don't find a case of the script running
 		fastqc_running = False
 
-		#pull contents of squeue
-		os.system("squeue > squeue_status.txt")
-
+		#check size of squeue and ensure that slurm timeout error was not hit (if error is hit, file has no contents and derails check)
+		status_size = 0
+		while status_size == 0:
+			#pull contents of squeue
+			os.system("squeue > squeue_status.txt")
+			os.system("ls -l squeue_status.txt > status_size.txt")
+			#read size of status_size
+			size_reader = open("status_size.txt", "r")
+			for line in size_reader.readlines():
+				status_size = int(line.split()[4])
+			size_reader.close()
+		
 		#read contents of squeue and determine if the job is still running
 		squeue_reader = open("squeue_status.txt", "r")
 		for line in squeue_reader.readlines():
@@ -175,11 +184,14 @@ os.system("grep \"DUE TO TIME LIMIT\" *err > failed_fastqc_files.txt")
 failed_file_ids = []
 
 #read through failed_fastqc_files and pick out the job id numbers
+"""
 failed_file = open("failed_fastqc_files.txt", "r")
 for line in failed_file.readlines():
 	bad_id = line.split(".")[0].split("_")[2]
 	failed_file_ids.append(str(bad_id))
+"""
 
+"""
 #check for any .lock files in the registration.* directories
 #this indicates that something bad happened and that the directory needs to be re-run
 #in theory this shouldn't catch anything, but apparently this is an issue
@@ -190,20 +202,42 @@ for r,d,f in os.walk(location):
 		if file.endswith(".lock"):
 
 			#code from Summer's master.py
-			failed_file_ids.append(int((file.split('_')[-4])[1:len(file.split('_')[-4])]))
 			print(file, r)
+			failed_file_ids.append(int((file.split('_')[-4])[1:len(file.split('_')[-4])]))
+			
 
 			#determine the image it corresponds to (id is between the 3rd and 4th to last underscore in the lock filename)
-			"""
-			lock_id = str(file.split("_")[len(file.split("_")) - 4])
+			
+			#lock_id = str(file.split("_")[len(file.split("_")) - 4])
 
 			#add if present
-			if lock_id not in failed_file_ids:
-				failed_file_ids.append(lock_id)
-			"""
+			#if lock_id not in failed_file_ids:
+			#	failed_file_ids.append(lock_id)
+			
+"""
+
+#look down each reformatted folder and see if there are 2 nrrd files. if there are not, need to redo
+for r,d,f in os.walk(location):
+	for direc in d:
+		if direc.startswith("reformatted."):
+			#get directory number
+			direnum = direc.split(".")[1]
+
+			#determine the number of nrrd files in the directory
+			nrrd_files = 0
+			for r2,d2,f2 in os.walk(direc):
+				for file2 in f2:
+					if file2.endswith(".nrrd"):
+						nrrd_files = nrrd_files + 1
+
+			#if we do not have 2 files, we need to redo this
+			if nrrd_files < 2:
+				if str(direnum) not in failed_file_ids:
+					failed_file_ids.append(str(direnum))
+
 
 #resubmit failed jobs for 12 hour run time so they can run to completion (if there are any, check for that)
-if len(failed_file_ids) > 0:
+while len(failed_file_ids) > 0:
 	#delete registration and reformatted folders for failed ids
 	for b_id in failed_file_ids:
 		os.system("rm -dr Registration." + str(b_id) + " reformatted." + str(b_id))	
@@ -242,15 +276,25 @@ if len(failed_file_ids) > 0:
 	for line in fastqc_job_id_file.readlines():
 		fastqc_job_id = line.split()[3].strip("\n")
 	fastqc_job_id_file.close()
+
 	#probe squeue with the fastqc id until the id is no longer present (indicating that the job is completely done)
 	fastqc_running = True
 	while fastqc_running:
 		#set fastqc_running to false, will break loop if we don't find a case of the script running
 		fastqc_running = False
 
-		#pull contents of squeue
-		os.system("squeue > squeue_status.txt")
-
+		#check size of squeue and ensure that slurm timeout error was not hit (if error is hit, file has no contents and derails check)
+		status_size = 0
+		while status_size == 0:
+			#pull contents of squeue
+			os.system("squeue > squeue_status.txt")
+			os.system("ls -l squeue_status.txt > status_size.txt")
+			#read size of status_size
+			size_reader = open("status_size.txt", "r")
+			for line in size_reader.readlines():
+				status_size = int(line.split()[4])
+			size_reader.close()
+		
 		#read contents of squeue and determine if the job is still running
 		squeue_reader = open("squeue_status.txt", "r")
 		for line in squeue_reader.readlines():
@@ -259,6 +303,38 @@ if len(failed_file_ids) > 0:
 				fastqc_running = True
 
 		squeue_reader.close()
+
+	reformatted_folder_count = 0
+
+	failed_file_ids = []
+
+	#look again for failed runs, and rerun if more failures
+	#look down each reformatted folder and see if there are 2 nrrd files. if there are not, need to redo
+	for r,d,f in os.walk(location):
+		for direc in d:
+			if direc.startswith("reformatted."):
+
+				reformatted_folder_count = reformatted_folder_count + 1
+				#get directory number
+				direnum = direc.split(".")[1]
+
+				#determine the number of nrrd files in the directory
+				nrrd_files = 0
+				for r2,d2,f2 in os.walk(direc):
+					for file2 in f2:
+						if file2.endswith(".nrrd"):
+							nrrd_files = nrrd_files + 1
+
+				#if we do not have 2 files, we need to redo this
+				if nrrd_files < 2:
+					if str(direnum) not in failed_file_ids:
+						failed_file_ids.append(str(direnum))
+
+	#kill the run if we are somehow missing a reformatted folder (we shouldn't be and I need to figure out why)
+	if reformatted_folder_count != czi_count_int:
+		print("This is not good, reformatted folder count of " + str(reformatted_folder_count) + " is not equal to the number of czis/images " + str(czi_count_int) +  ". Quitting for manual analysis")
+		quit()
+
 
 #done with initial registration. Move smoothed nrrds to new directory called smoothedtiffs
 os.system("mkdir smoothedtiffs")
@@ -296,15 +372,24 @@ for line in warpingfastqc_job_id_file.readlines():
 	warpingfastqc_job_id = line.split()[3].strip("\n")
 warpingfastqc_job_id_file.close()
 
-#probe squeue with the warpingfastqc id until the id is no longer present (indicating that the job is completely done)
+#probe squeue with the fastqc id until the id is no longer present (indicating that the job is completely done)
 warpingfastqc_running = True
 while warpingfastqc_running:
 	#set fastqc_running to false, will break loop if we don't find a case of the script running
 	warpingfastqc_running = False
 
-	#pull contents of squeue
-	os.system("squeue > squeue_status.txt")
-
+	#check size of squeue and ensure that slurm timeout error was not hit (if error is hit, file has no contents and derails check)
+	status_size = 0
+	while status_size == 0:
+		#pull contents of squeue
+		os.system("squeue > squeue_status.txt")
+		os.system("ls -l squeue_status.txt > status_size.txt")
+		#read size of status_size
+		size_reader = open("status_size.txt", "r")
+		for line in size_reader.readlines():
+			status_size = int(line.split()[4])
+		size_reader.close()
+	
 	#read contents of squeue and determine if the job is still running
 	squeue_reader = open("squeue_status.txt", "r")
 	for line in squeue_reader.readlines():
@@ -313,6 +398,134 @@ while warpingfastqc_running:
 			warpingfastqc_running = True
 
 	squeue_reader.close()
+
+#make sure all warped files are created reformatted*/jacobian*.nrrd
+#need to rerun for any that fail
+
+failed_file_ids = []
+
+#look down each reformatted folder and see if there are 1 nrrd files. if there are not, need to redo
+for r,d,f in os.walk(location):
+	for direc in d:
+		if direc.startswith("reformatted."):
+			#get directory number
+			direnum = direc.split(".")[1]
+
+			#determine the number of nrrd files in the directory
+			nrrd_files = 0
+			for r2,d2,f2 in os.walk(direc):
+				for file2 in f2:
+					if file2.endswith(".nrrd"):
+						nrrd_files = nrrd_files + 1
+
+			#if we do not have 1 files, we need to redo this
+			if nrrd_files < 1:
+				if str(direnum) not in failed_file_ids:
+					failed_file_ids.append(str(direnum))
+
+#variable to hold count of jacobian files, should equal number of czi files; value may be different if we have failed file ids (and value will correspondingly change)
+jacobian_count = czi_count_int
+
+#rerun warping for any failures
+#resubmit failed jobs for 12 hour run time so they can run to completion (if there are any, check for that)
+while len(failed_file_ids) > 0:
+	#delete registration and reformatted folders for failed ids
+	for b_id in failed_file_ids:
+		os.system("rm -dr reformatted." + str(b_id) + "/*")	
+
+	#rewrite fastqc.slurm
+	os.system("rm warpingfastqc_uab.slurm")
+
+	b_id_string = ""
+
+	#create string of failed file ids to insert into new job
+	for b_id in failed_file_ids:
+		b_id_string = b_id_string + b_id
+		#add comma if not at last
+		if b_id != failed_file_ids[len(failed_file_ids) - 1]:
+			b_id_string = b_id_string + ","
+
+	warpingfastqc = open("warpingfastqc_uab.slurm", "w")
+	warpingfastqc.write("#!/bin/bash\n")
+	warpingfastqc.write("#SBATCH -p short # Partition to submit to\n")
+	warpingfastqc.write("#SBATCH -n 1 # Number of cores requested\n")
+	warpingfastqc.write("#SBATCH -N 1 # Ensure that all cores are on one machine\n")
+	warpingfastqc.write("#SBATCH -t 720 # Runtime in minutes\n")
+	warpingfastqc.write("#SBATCH --mem=6000 # Memory per cpu in MB (see also --mem-per-cpu)\n")
+	warpingfastqc.write("#SBATCH --job-name=arrayJob\n")
+	warpingfastqc.write("#SBATCH --array=1-" + str(czi_count_int) + "\n")
+	warpingfastqc.write("#SBATCH -o hostname_%A_%a.out # Standard out goes to this file\n")
+	warpingfastqc.write("#SBATCH -e hostname_%A_%a.err # Standard err goes to this filehostname\n")
+	warpingfastqc.write("module load CMTK/3.3.1\n")
+	warpingfastqc.write("reformatx -o " + location + "/reformatted.$SLURM_ARRAY_TASK_ID/jacobian_$SLURM_ARRAY_TASK_ID.nrrd " + reg_image + " --jacobian " + location + "/Registration.$SLURM_ARRAY_TASK_ID/warp/$SLURM_ARRAY_TASK_ID/*/registration\n")
+	warpingfastqc.close()
+
+	#submit new job and track it
+	os.system("sbatch warpingfastqc_uab.slurm > warpingfastqc_job_id.txt")
+	fastqc_job_id_file = open("warpingfastqc_job_id.txt", "r")
+	fastqc_job_id = ""
+	for line in fastqc_job_id_file.readlines():
+		fastqc_job_id = line.split()[3].strip("\n")
+	fastqc_job_id_file.close()
+	#probe squeue with the fastqc id until the id is no longer present (indicating that the job is completely done)
+	fastqc_running = True
+	while fastqc_running:
+		#set fastqc_running to false, will break loop if we don't find a case of the script running
+		fastqc_running = False
+
+		#check size of squeue and ensure that slurm timeout error was not hit (if error is hit, file has no contents and derails check)
+		status_size = 0
+		while status_size == 0:
+			#pull contents of squeue
+			os.system("squeue > squeue_status.txt")
+			os.system("ls -l squeue_status.txt > status_size.txt")
+			#read size of status_size
+			size_reader = open("status_size.txt", "r")
+			for line in size_reader.readlines():
+				status_size = int(line.split()[4])
+			size_reader.close()
+		
+		#read contents of squeue and determine if the job is still running
+		squeue_reader = open("squeue_status.txt", "r")
+		for line in squeue_reader.readlines():
+			#set true if we find the job id
+			if str(fastqc_job_id) in line:
+				fastqc_running = True
+
+		squeue_reader.close()
+
+
+
+	jacobian_count = 0
+
+	failed_file_ids = []
+
+	#look again for failed runs, and rerun if more failures
+	#look down each reformatted folder and see if there are 2 nrrd files. if there are not, need to redo
+	for r,d,f in os.walk(location):
+		for direc in d:
+			if direc.startswith("reformatted."):
+
+				#get directory number
+				direnum = direc.split(".")[1]
+
+				#determine the number of nrrd files in the directory
+				nrrd_files = 0
+				for r2,d2,f2 in os.walk(direc):
+					for file2 in f2:
+						if file2.endswith(".nrrd") and file2.startswith("jacobian"):
+							nrrd_files = nrrd_files + 1
+							jacobian_count = jacobian_count + 1
+
+				#if we do not have 2 files, we need to redo this
+				if nrrd_files < 1:
+					if str(direnum) not in failed_file_ids:
+						failed_file_ids.append(str(direnum))
+
+#kill the run if we are somehow missing a reformatted folder (we shouldn't be and I need to figure out why)
+if jacobian_count != czi_count_int:
+	print("This is not good, jacobian count of " + str(jacobian_count) + " is not equal to the number of czis/images " + str(czi_count_int) + ". Quitting for manual analysis")
+	quit()
 
 #create directory warpingsmoothed to put jacobian images in
 os.system("mkdir warpingsmoothed")
@@ -380,15 +593,24 @@ for line in fastqc_smoothing_job_id_file.readlines():
 	fastqc_smoothing_job_id = line.split()[3].strip("\n")
 fastqc_smoothing_job_id_file.close()
 
-#probe squeue with the warpingfastqc id until the id is no longer present (indicating that the job is completely done)
+#probe squeue with the fastqc id until the id is no longer present (indicating that the job is completely done)
 fastqc_smoothing_running = True
 while fastqc_smoothing_running:
 	#set fastqc_running to false, will break loop if we don't find a case of the script running
 	fastqc_smoothing_running = False
 
-	#pull contents of squeue
-	os.system("squeue > squeue_status.txt")
-
+	#check size of squeue and ensure that slurm timeout error was not hit (if error is hit, file has no contents and derails check)
+	status_size = 0
+	while status_size == 0:
+		#pull contents of squeue
+		os.system("squeue > squeue_status.txt")
+		os.system("ls -l squeue_status.txt > status_size.txt")
+		#read size of status_size
+		size_reader = open("status_size.txt", "r")
+		for line in size_reader.readlines():
+			status_size = int(line.split()[4])
+		size_reader.close()
+	
 	#read contents of squeue and determine if the job is still running
 	squeue_reader = open("squeue_status.txt", "r")
 	for line in squeue_reader.readlines():
@@ -402,22 +624,35 @@ while fastqc_smoothing_running:
 bad_tiff_files = []
 
 #look at file size of tiff files, if the size is 0, then it is a bad tiff
-os.system("ll *tiff > tiff_files.txt")
+os.system("ls -l *tiff > tiff_files.txt")
+
+#create dictionary to count to make sure that we have 2 tiffs for each index (if we don't, this is a bad id and we need to rerun)
+tiff_dict = {}
+for i in range(1, czi_count_int + 1):
+	tiff_dict[i] = 0
 
 #read tiff_files and identify the file size of the tiff tiles
 tiff_file = open("tiff_files.txt", "r")
 for line in tiff_file.readlines():
 	size = str(line.split(" ")[4])
+	file_id = str(line.split(" ")[8].split("_")[len(line.split(" ")[8].split("_")) - 4])
+
+	tiff_dict[int(file_id)] = tiff_dict[int(file_id)] + 1
 
 	#if size is 0, file is bad
 	#delete file and add file id to list
 	if size == "0":
 		os.system("rm " + line.split(" ")[8])
-		file_id = str(line.split(" ")[8].split("_")[len(line.split(" ")[8].split("_")) - 4])
+		
 		bad_tiff_files.append(file_id)
 
+#if fewer than 2 tiff files for an index, consider it bad
+for i in range(1, czi_count_int + 1):
+	if tiff_dict[i] != 2 and str(i) not in bad_tiff_files:
+		bad_tiff_files.append(str(i))
+
 #make a string out of all the bad files (if there are any) and submit in a new job
-if len(bad_tiff_files) > 0:
+while len(bad_tiff_files) > 0:
 	bad_tiff_string = ""
 	for badtiff in bad_tiff_files:
 		bad_tiff_string = badtiff + "," + bad_tiff_string
@@ -452,15 +687,24 @@ if len(bad_tiff_files) > 0:
 		fastqc_smoothing_job_id = line.split()[3].strip("\n")
 	fastqc_smoothing_job_id_file.close()
 
-	#probe squeue with the warpingfastqc id until the id is no longer present (indicating that the job is completely done)
+	#probe squeue with the fastqc id until the id is no longer present (indicating that the job is completely done)
 	fastqc_smoothing_running = True
 	while fastqc_smoothing_running:
 		#set fastqc_running to false, will break loop if we don't find a case of the script running
 		fastqc_smoothing_running = False
 
-		#pull contents of squeue
-		os.system("squeue > squeue_status.txt")
-
+		#check size of squeue and ensure that slurm timeout error was not hit (if error is hit, file has no contents and derails check)
+		status_size = 0
+		while status_size == 0:
+			#pull contents of squeue
+			os.system("squeue > squeue_status.txt")
+			os.system("ls -l squeue_status.txt > status_size.txt")
+			#read size of status_size
+			size_reader = open("status_size.txt", "r")
+			for line in size_reader.readlines():
+				status_size = int(line.split()[4])
+			size_reader.close()
+		
 		#read contents of squeue and determine if the job is still running
 		squeue_reader = open("squeue_status.txt", "r")
 		for line in squeue_reader.readlines():
@@ -469,6 +713,37 @@ if len(bad_tiff_files) > 0:
 				fastqc_smoothing_running = True
 
 		squeue_reader.close()
+
+	#make a list to hold any smoothed tiffs that may have failed
+	bad_tiff_files = []
+
+	#look at file size of tiff files, if the size is 0, then it is a bad tiff
+	os.system("ls -l *tiff > tiff_files.txt")
+
+	#create dictionary to count to make sure that we have 2 tiffs for each index (if we don't, this is a bad id and we need to rerun)
+	tiff_dict = {}
+	for i in range(1, czi_count_int + 1):
+		tiff_dict[i] = 0
+
+	#read tiff_files and identify the file size of the tiff tiles
+	tiff_file = open("tiff_files.txt", "r")
+	for line in tiff_file.readlines():
+		size = str(line.split(" ")[4])
+		file_id = str(line.split(" ")[8].split("_")[len(line.split(" ")[8].split("_")) - 4])
+
+		tiff_dict[int(file_id)] = tiff_dict[int(file_id)] + 1
+
+		#if size is 0, file is bad
+		#delete file and add file id to list
+		if size == "0":
+			os.system("rm " + line.split(" ")[8])
+			
+			bad_tiff_files.append(file_id)
+
+	#if fewer than 2 tiff files for an index, consider it bad
+	for i in range(1, czi_count_int + 1):
+		if tiff_dict[i] != 2 and str(i) not in bad_tiff_files:
+			bad_tiff_files.append(str(i))
 
 #job is done running, should have tiff files now. move to onlysmoothedtiffs directory (likely made, but we will try anyway)
 os.system("mkdir onlysmoothedtiffs")
@@ -511,15 +786,24 @@ for line in fastqc_smoothing_job_id_file.readlines():
 	fastqc_smoothing_job_id = line.split()[3].strip("\n")
 fastqc_smoothing_job_id_file.close()
 
-#probe squeue with the warpingfastqc id until the id is no longer present (indicating that the job is completely done)
+#probe squeue with the fastqc id until the id is no longer present (indicating that the job is completely done)
 fastqc_smoothing_running = True
 while fastqc_smoothing_running:
 	#set fastqc_running to false, will break loop if we don't find a case of the script running
 	fastqc_smoothing_running = False
 
-	#pull contents of squeue
-	os.system("squeue > squeue_status.txt")
-
+	#check size of squeue and ensure that slurm timeout error was not hit (if error is hit, file has no contents and derails check)
+	status_size = 0
+	while status_size == 0:
+		#pull contents of squeue
+		os.system("squeue > squeue_status.txt")
+		os.system("ls -l squeue_status.txt > status_size.txt")
+		#read size of status_size
+		size_reader = open("status_size.txt", "r")
+		for line in size_reader.readlines():
+			status_size = int(line.split()[4])
+		size_reader.close()
+	
 	#read contents of squeue and determine if the job is still running
 	squeue_reader = open("squeue_status.txt", "r")
 	for line in squeue_reader.readlines():
@@ -528,6 +812,132 @@ while fastqc_smoothing_running:
 			fastqc_smoothing_running = True
 
 	squeue_reader.close()
+
+#Ensure all jacobian tiffs were made and redo generation for any failed attempts
+#make a list to hold any smoothed tiffs that may have failed
+bad_tiff_files = []
+
+#look at file size of tiff files, if the size is 0, then it is a bad tiff
+os.system("ls -l *tiff > tiff_files.txt")
+
+#create dictionary to count to make sure that we have 2 tiffs for each index (if we don't, this is a bad id and we need to rerun)
+tiff_dict = {}
+for i in range(1, czi_count_int + 1):
+	tiff_dict[i] = 0
+
+#read tiff_files and identify the file size of the tiff tiles
+tiff_file = open("tiff_files.txt", "r")
+for line in tiff_file.readlines():
+	size = str(line.split(" ")[4])
+	file_id = str(line.split(" ")[8].split("_")[1].split(".")[0])
+
+	tiff_dict[int(file_id)] = tiff_dict[int(file_id)] + 1
+
+	#if size is 0, file is bad
+	#delete file and add file id to list
+	if size == "0":
+		os.system("rm " + line.split(" ")[8])
+		
+		bad_tiff_files.append(file_id)
+
+#if fewer than 2 tiff files for an index, consider it bad
+for i in range(1, czi_count_int + 1):
+	if tiff_dict[i] != 1 and str(i) not in bad_tiff_files:
+		bad_tiff_files.append(str(i))
+
+#make a string out of all the bad files (if there are any) and submit in a new job
+while len(bad_tiff_files) > 0:
+	bad_tiff_string = ""
+	for badtiff in bad_tiff_files:
+		bad_tiff_string = badtiff + "," + bad_tiff_string
+
+	#rewrite the slurm file for only the bad tiffs
+	#make fastqc_smoothing.slurm script
+	warpingfastqcsmoothing = open("warpingfastqc_smoothing.slurm", "w")
+	warpingfastqcsmoothing.write("#!/bin/bash\n")
+	warpingfastqcsmoothing.write("#SBATCH -p express # Partition to submit to\n")
+	warpingfastqcsmoothing.write("#SBATCH -n 1 # Number of cores requested\n")
+	warpingfastqcsmoothing.write("#SBATCH -N 1 # Ensure that all cores are on one machine\n")
+	warpingfastqcsmoothing.write("#SBATCH -t 4 # Runtime in minutes\n")
+	warpingfastqcsmoothing.write("#SBATCH --mem=8000 # Memory per cpu in MB (see also --mem-per-cpu)\n")
+	warpingfastqcsmoothing.write("#SBATCH --job-name=arrayJob\n")
+	warpingfastqcsmoothing.write("#SBATCH --array=" + bad_tiff_string + "\n")
+	warpingfastqcsmoothing.write("#SBATCH -o hostname_%A_%a.out # Standard out goes to this file\n")
+	warpingfastqcsmoothing.write("#SBATCH -e hostname_%A_%a.err # Standard err goes to this filehostname\n")
+	warpingfastqcsmoothing.write("module load Fiji/20201104-1356\n")
+	warpingfastqcsmoothing.write("echo `hostname`\n")
+	warpingfastqcsmoothing.write("STUB_FILE=`echo ls /tmp/ImageJ-$USER*.stub`\n")
+	warpingfastqcsmoothing.write("if [[ $STUB_FILE ]]; then rm -f /tmp/ImageJ-$USER*.stub; fi\n")
+	warpingfastqcsmoothing.write("xvfb-run -d ImageJ-linux64 -macro /data/project/thymelab/FijiScripts/PrepareJacobianStacksForMAPMapping_cluster.m \"jacobian_$SLURM_ARRAY_TASK_ID.nrrd " + location + "/warpingsmoothed/\"\n")
+	warpingfastqcsmoothing.close()
+
+	#push the job and get the job id for tracking
+	os.system("sbatch warpingfastqc_smoothing.slurm > fastqc_smoothing.txt")
+
+	#read warpingfastqc_job_id to get the slurm job id so we can track it in squeue
+	fastqc_smoothing_job_id_file = open("fastqc_smoothing.txt", "r")
+	fastqc_smoothing_job_id = ""
+	for line in fastqc_smoothing_job_id_file.readlines():
+		fastqc_smoothing_job_id = line.split()[3].strip("\n")
+	fastqc_smoothing_job_id_file.close()
+
+	#probe squeue with the fastqc id until the id is no longer present (indicating that the job is completely done)
+	fastqc_smoothing_running = True
+	while fastqc_smoothing_running:
+		#set fastqc_running to false, will break loop if we don't find a case of the script running
+		fastqc_smoothing_running = False
+
+		#check size of squeue and ensure that slurm timeout error was not hit (if error is hit, file has no contents and derails check)
+		status_size = 0
+		while status_size == 0:
+			#pull contents of squeue
+			os.system("squeue > squeue_status.txt")
+			os.system("ls -l squeue_status.txt > status_size.txt")
+			#read size of status_size
+			size_reader = open("status_size.txt", "r")
+			for line in size_reader.readlines():
+				status_size = int(line.split()[4])
+			size_reader.close()
+		
+		#read contents of squeue and determine if the job is still running
+		squeue_reader = open("squeue_status.txt", "r")
+		for line in squeue_reader.readlines():
+			#set true if we find the job id
+			if str(fastqc_smoothing_job_id) in line:
+				fastqc_smoothing_running = True
+
+		squeue_reader.close()
+
+	#make a list to hold any smoothed tiffs that may have failed
+	bad_tiff_files = []
+
+	#look at file size of tiff files, if the size is 0, then it is a bad tiff
+	os.system("ls -l *tiff > tiff_files.txt")
+
+	#create dictionary to count to make sure that we have 2 tiffs for each index (if we don't, this is a bad id and we need to rerun)
+	tiff_dict = {}
+	for i in range(1, czi_count_int + 1):
+		tiff_dict[i] = 0
+
+	#read tiff_files and identify the file size of the tiff tiles
+	tiff_file = open("tiff_files.txt", "r")
+	for line in tiff_file.readlines():
+		size = str(line.split(" ")[4])
+		file_id = str(line.split(" ")[8].split("_")[1].split(".")[0])
+
+		tiff_dict[int(file_id)] = tiff_dict[int(file_id)] + 1
+
+		#if size is 0, file is bad
+		#delete file and add file id to list
+		if size == "0":
+			os.system("rm " + line.split(" ")[8])
+			
+			bad_tiff_files.append(file_id)
+
+	#if fewer than 2 tiff files for an index, consider it bad
+	for i in range(1, czi_count_int + 1):
+		if tiff_dict[i] != 1 and str(i) not in bad_tiff_files:
+			bad_tiff_files.append(str(i))
 
 #we should have jacobian tiffs now too, make an onlysmoothedtiffs directory
 os.system("mkdir onlysmoothedtiffs")
