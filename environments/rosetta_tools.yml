@@ -1,0 +1,11 @@
+name: rosetta_tools_env
+dependencies:
+  - python >= 3.7
+  - pip
+  - numpy
+  - matplotlib
+  - scipy
+  - biopython
+  - pip:
+    - PyQt5
+    - pillow

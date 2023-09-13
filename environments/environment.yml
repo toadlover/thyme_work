@@ -1,0 +1,11 @@
+name: thymelab
+dependencies:
+  - python >= 3.7
+  - pip
+  - numpy
+  - matplotlib
+  - scipy
+  - cv2
+  - pip:
+    - PyQt5
+    - pillow

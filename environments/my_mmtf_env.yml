@@ -1,0 +1,10 @@
+name: my_mmtf_env
+dependencies:
+  - python >= 3.7
+  - pip
+  - numpy
+  - matplotlib
+  - scipy
+  - pip:
+    - PyQt5
+    - pillow

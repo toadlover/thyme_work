@@ -1,0 +1,31 @@
+# .bashrc
+
+# Source global definitions
+if [ -f /etc/bashrc ]; then
+  . /etc/bashrc
+fi
+
+# User specific aliases and functions
+umask u=rwx,g=rwx,o=rwx
+alias ls='ls --color=auto'
+alias ki='cd'
+alias sruns='srun --ntasks=1 --mem-per-cpu=10240 --time=06:00:00 --partition=short --job-name=Interactive_session -N 1 --pty /bin/bash'
+alias srunm='srun --ntasks=1 --nodes=8 --mem-per-cpu=10240 --time=06:00:00 --partition=short --job-name=Interactive_session -N 1 --pty /bin/bash'
+alias srunt='srun -p test --pty --mem 12000 -t 0-6:00 /bin/bash'
+alias ma='module load Anaconda/4.3.0-fasrc01'
+alias mcv='module load opencv/3.0.0-fasrc04' #need to get ffmpeg
+alias mcv7='module load opencv/3.4.3-fasrc01'
+alias projects='cd /n/schierfs1/projects/'
+alias vm='cd /n/schierfs2/schiermedia/sthyme_schizophreniamicroscopy/img'
+alias myfold='cd /n/schierfs2/projects/ImageRegistration/data/sthyme'
+alias behav='cd /n/schierfs2/projects/behaviordata_sthyme'
+alias myfoldold='cd /n/schierfs1/projects/ImageRegistration/data/sthyme'
+alias regal='cd /n/scratchlfs/schier_lab/ST_Testing'
+alias lab='cd /data/project/thymelab/sthyme'
+
+# Uncomment the following line if you don't like systemctl's auto-paging feature:
+# export SYSTEMD_PAGER=
+
+# User specific aliases and functions
+module load gcc
+module load slurm 

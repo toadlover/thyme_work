@@ -1,0 +1,14 @@
+name: babel_env3
+dependencies:
+  - python >= 2.5
+  - pip
+  - numpy
+  - matplotlib
+  - cv2
+  - scipy
+  - pip:
+    - PyQt5
+    - pillow
+  - babel
+  - pybel
+  - openbabel

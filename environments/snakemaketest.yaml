@@ -1,0 +1,13 @@
+name: snakemaketest
+channels:
+  -conda-forge
+  -bioconda
+  -defaults
+  -cgat
+dependencies:
+ -snakemake
+ -pybedtools=0.8.0
+ -bedtools=2.27.1
+ -biopython
+ -pyBigWig
+ -python=3.*

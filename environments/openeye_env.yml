@@ -1,0 +1,10 @@
+name: openeye_env
+dependencies:
+  - python >= 2.5
+  - pip
+  - numpy
+  - matplotlib
+  - scipy
+  - pip:
+    - PyQt5
+    - pillow
