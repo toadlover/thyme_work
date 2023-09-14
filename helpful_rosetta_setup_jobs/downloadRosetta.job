@@ -1,0 +1,9 @@
+#!/bin/bash
+#SBATCH -p medium # Partition to submit to
+#SBATCH -n 12 # Number of cores requested
+#SBATCH -N 1 # Ensure that all cores are on one machine
+#SBATCH -t 3000 # Runtime in minutes
+#SBATCH --mem=128000 # Memory per cpu in MB (see also --mem-per-cpu)
+#SBATCH -o hostname_%A_%a.out # Standard out goes to this file
+#SBATCH -e hostname_%A_%a.err # Standard err goes to this filehostname
+tar -xvf rosetta_bin_linux_3.11_bundle.tgz
