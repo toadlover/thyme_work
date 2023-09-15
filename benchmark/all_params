@@ -1,0 +1,5 @@
+-a /data/project/thymelab/running_Rosetta/ari_work/REU_shared_space/motif_collection/files/blank_motifs.motifs #Library location
+-a /data/project/thymelab/running_Rosetta/ari_work/REU_shared_space/motif_collection/files/condensed_motif_list_08_06_21.motifs
+
+-b /data/project/thymelab/running_Rosetta/ari_work/Rosetta_Code_copy #Discovery script location
+-b /data/project/thymelab/running_Rosetta/ari_work/Ishaan_Rosetta

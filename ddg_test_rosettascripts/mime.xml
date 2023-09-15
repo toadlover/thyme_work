@@ -1,0 +1,16 @@
+<SCOREFXNS>
+    <ScoreFunction name="sc12_w_pb" weights="score12_full" patch="pb_elec"/>  patch PB term
+</SCOREFXNS>
+<MOVERS>
+    <SetupPoissonBoltzmannPotential name="setup_pb" scorefxn="sc12_w_pb" charged_chains="1" apbs_path="/home/honda/apbs-1.4/bin/apbs"/>
+    <ddG name="ddg" scorefxn="sc12_w_pb" chain_num="2"/>
+</MOVERS>
+<FILTERS>
+    ...
+</FILTERS>
+<PROTOCOLS>
+    <Add mover_name="setup_pb"/>  Initialize PB
+    <Add mover_name="..."/>  some mover
+    <Add mover_name="ddg"/> use PB-enabled ddg as if filter
+    <Add filter_name="..."/>  more filtering
+</PROTOCOLS>

@@ -1,0 +1,4 @@
+-l /data/project/thymelab/running_Rosetta/ari_work/REU_shared_space/benchmark/files/discovery_files/condensed_motif_list_08_06_21.motifs #Library location
+-b /data/project/thymelab/running_Rosetta/ari_work/Rosetta_Code_copy #Discovery script location
+-r 100 #fa_rep_cutoff
+-a -5 #fa_atr_cutoff

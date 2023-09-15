@@ -1,0 +1,4 @@
+-l /data/project/thymelab/running_Rosetta/ari_work/REU_shared_space/benchmark/files/discovery_files/spliced_list_duplicates_removed_october_2022.motifs #Library location
+-b /data/project/thymelab/running_Rosetta/ari_work/Rosetta_Code_copy #Discovery script location
+-r 100 #fa_rep_cutoff
+-a -5 #fa_atr_cutoff
