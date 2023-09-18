@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH -p short # Partition to submit to
+#SBATCH -n 1 # Number of cores requested
+#SBATCH -t 720 # Runtime in minutes
+#SBATCH --mem=10000 # Memory per cpu in MB (see also --mem-per-cpu)
+#SBATCH -o job_out/hostname_%A_%a.out # Standard out goes to this file
+#SBATCH -e job_out/hostname_%A_%a.err # Standard err goes to this filehostname
+#SBATCH --array=0-2
+array=(i a s)
+v=${array[$SLURM_ARRAY_TASK_ID]}
+python3 subsort.py $v
+
+
+

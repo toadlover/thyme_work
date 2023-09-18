@@ -1,0 +1,9 @@
+#!/bin/bash
+#SBATCH -p short # Partition to submit to
+#SBATCH -n 4 # Number of cores requested
+#SBATCH -N 1 # Ensure that all cores are on one machine
+#SBATCH -t 720 # Runtime in minutes
+#SBATCH --mem=10000 # Memory per cpu in MB (see also --mem-per-cpu)
+#SBATCH --mail-type=ALL          # Mail events (NONE, BEGIN, END, FAIL, ALL)
+#SBATCH --mail-user=ishaanp@sas.upenn.edu    # Where to send mail
+python3 split_ari.py  

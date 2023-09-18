@@ -1,0 +1,12 @@
+#!/bin/bash
+#SBATCH -p express # Partition to submit to
+#SBATCH -n 1 # Number of cores requested
+#SBATCH -N 1 # Ensure that all cores are on one machine
+#SBATCH -t 10 # Runtime in minutes
+#SBATCH --mem=3000 # Memory per cpu in MB (see also --mem-per-cpu)
+#SBATCH -o job_out_a/hostname_%A_%a.out # Standard out goes to this file
+#SBATCH -e job_out_a/hostname_%A_%a.err # Standard err goes to this filehostname
+#SBATCH --array=0843-1685%421
+printf -v v "%04d" $SLURM_ARRAY_TASK_ID
+p="/data/project/thymelab/running_Rosetta/ari_work/REU_shared_space/div_lib/a/${v}"
+/data/project/thymelab/running_Rosetta/ari_work/REU_shared_space/test/pharmit-code/src/shapedb/Release/./ShapeDB -h -Create -in $p/aligned.sdf -db $p/db.db
